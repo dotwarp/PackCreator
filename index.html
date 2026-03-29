@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft 1.8.9 Texture Studio Pro v3.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        .pixel-grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 1px;
+            background-color: #333;
+            border: 2px solid #555;
+            aspect-ratio: 1 / 1;
+            cursor: crosshair;
+        }
+        .pixel {
+            background-color: transparent;
+            width: 100%;
+            height: 100%;
+        }
+        .pixel:hover {
+            outline: 1px solid white;
+            z-index: 10;
+        }
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1a202c;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 3px;
+        }
+        .tool-active {
+            background-color: #2563eb !important;
+            border-color: #60a5fa !important;
+        }
+        .palette-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 4px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 border-b border-gray-800 pb-4 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold text-green-400">MC 1.8.9 Texture Studio <span class="text-sm font-normal text-gray-500">v3.2 Pro</span></h1>
+                <p class="text-gray-400 text-sm">防具・素材・ブロックを大幅追加</p>
+            </div>
+            <div class="text-right text-xs text-gray-500">
+                16x16 Pixel Editor for Minecraft Java
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left Sidebar -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Pack Settings -->
+                <section class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+                    <h2 class="text-sm font-bold mb-4 uppercase tracking-wider text-gray-400">パック設定</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[10px] mb-1 text-gray-500">パック名</label>
+                            <input type="text" id="packName" value="CustomPvPPack" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm focus:border-green-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] mb-1 text-gray-500">説明 (mcmeta)</label>
+                            <textarea id="packDescription" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm h-14 focus:border-green-500 outline-none">Professional Minecraft Texture Pack</textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Item Selector -->
+                <section class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
+                    <h2 class="text-sm font-bold mb-2 uppercase tracking-wider text-blue-400">アイテム選択</h2>
+                    <select id="categoryFilter" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm mb-3 outline-none">
+                        <option value="all">すべて</option>
+                        <option value="sword">武器</option>
+                        <option value="tool">ツール</option>
+                        <option value="armor">装備</option>
+                        <option value="material">素材/宝石</option>
+                        <option value="block">ブロック</option>
+                        <option value="wool">羊毛</option>
+                        <option value="custom">カスタム追加分</option>
+                    </select>
+                    <div class="grid grid-cols-1 gap-1 max-h-[400px] overflow-y-auto pr-2 custom-scroll" id="itemList">
+                        <!-- Items -->
+                    </div>
+                </section>
+
+                <!-- Custom ID Adder -->
+                <section class="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 border-dashed border-blue-500/50">
+                    <h2 class="text-sm font-bold mb-3 text-blue-300">カスタムIDを追加</h2>
+                    <div class="space-y-2">
+                        <input type="text" id="customLabel" placeholder="表示名 (例: オリジナル素材)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-xs">
+                        <input type="text" id="customPath" placeholder="パス (例: items/ruby)" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-xs">
+                        <button id="addCustomBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded transition">リストに追加</button>
+                    </div>
+                </section>
+                
+                <button id="exportBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12 a2 2 0 002-2v-1M16 8l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    ZIPを保存
+                </button>
+            </div>
+
+            <!-- Main Editor -->
+            <div class="lg:col-span-6 flex flex-col items-center">
+                <div class="bg-gray-800 p-5 rounded-2xl shadow-2xl w-full border border-gray-700">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-white mb-1" id="currentItemDisplay">diamond_sword</h3>
+                            <p class="text-[10px] text-gray-500 font-mono" id="currentPathDisplay">textures/items/diamond_sword.png</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="importBtn" class="bg-purple-600 hover:bg-purple-500 text-[10px] font-bold px-3 py-1.5 rounded-lg transition" title="他のアイテムからデザインをコピー">他からインポート</button>
+                            <button id="clearCanvas" class="bg-red-600 hover:bg-red-500 text-[10px] font-bold px-3 py-1.5 rounded-lg transition">全消去</button>
+                        </div>
+                    </div>
+                    
+                    <div id="editorContainer" class="mb-6 flex justify-center bg-black/20 p-4 rounded-xl">
+                        <div id="pixelGrid" class="pixel-grid w-[400px] max-w-full"></div>
+                    </div>
+
+                    <!-- Toolbar -->
+                    <div class="bg-gray-900 p-4 rounded-xl flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="flex flex-col items-center gap-1">
+                                <label class="text-[9px] text-gray-500 uppercase">Color</label>
+                                <input type="color" id="colorPicker" value="#00ffff" class="w-12 h-12 bg-transparent cursor-pointer border-none p-0 overflow-hidden rounded-lg">
+                            </div>
+                            
+                            <div class="flex flex-col gap-1 ml-2">
+                                <button id="brightenBtn" class="bg-gray-700 hover:bg-gray-600 text-[10px] px-2 py-1 rounded border border-gray-600 transition">淡くする</button>
+                                <button id="darkenBtn" class="bg-gray-700 hover:bg-gray-600 text-[10px] px-2 py-1 rounded border border-gray-600 transition">濃くする</button>
+                            </div>
+
+                            <div class="h-10 w-[1px] bg-gray-700 mx-1 ml-2"></div>
+                            
+                            <div class="flex gap-2">
+                                <button id="penTool" class="tool-btn p-3 bg-gray-700 rounded-lg border-2 border-transparent transition-all" title="ペン (P)">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                </button>
+                                <button id="eraserTool" class="tool-btn p-3 bg-gray-700 rounded-lg border-2 border-transparent transition-all" title="消しゴム (E)">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M16.24 3.56L21.19 8.51c.78.78.78 2.05 0 2.83L13.4 19.13c-.78.78-2.05.78-2.83 0L5.61 14.18c-.78-.78-.78-2.05 0-2.83L16.24 3.56zM4.69 11.32L2.12 13.89c-.39.39-.39 1.02 0 1.41l4.95 4.95c.39.39 1.02.39 1.41 0L11.05 17.68 4.69 11.32z"/></svg>
+                                </button>
+                                <button id="pickerTool" class="tool-btn p-3 bg-gray-700 rounded-lg border-2 border-transparent transition-all" title="スポイト (S)">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.44 10.61c.39.39.39 1.02 0 1.41l-1.6 1.6-1.58-1.58c-.39-.39-1.02-.39-1.41 0l-1.3 1.3c-.39.39-.39 1.02 0 1.41l1.58 1.58-6.16 6.16c-.39.39-1.02.39-1.41 0l-2.12-2.12c-.39-.39-.39-1.02 0-1.41l6.16-6.16-1.58-1.58c-.39-.39-.39-1.02 0-1.41l1.3-1.3c.39-.39 1.02-.39 1.41 0l1.58 1.58 1.6-1.6c.39-.39 1.02-.39 1.41 0l2.12 2.12zM21.5 3.5a3.53 3.53 0 0 0-5 0l-1.2 1.2 5 5 1.2-1.2a3.53 3.53 0 0 0 0-5z"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="text-right">
+                                <span class="text-[9px] text-gray-500 block">Preview</span>
+                                <div id="miniPreview" class="w-10 h-10 border border-gray-600 rounded bg-black/40" style="image-rendering: pixelated; background-size: cover;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Extended Palette -->
+                <section class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-sm font-bold uppercase text-gray-400">パレット</h2>
+                        <button id="addColorBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-[10px] px-2 py-1 rounded transition flex items-center gap-1">
+                            <span>＋</span> 追加
+                        </button>
+                    </div>
+                    <div class="palette-grid" id="colorPalette"></div>
+                </section>
+                
+                <section class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg">
+                    <h2 class="text-sm font-bold mb-2 uppercase text-gray-400">現在のステータス</h2>
+                    <div class="text-xs space-y-2 text-gray-500">
+                        <div class="flex justify-between"><p>編集済み</p><span id="statEdited" class="text-white">0</span></div>
+                        <div class="flex justify-between"><p>総アイテム</p><span id="statTotal" class="text-white">0</span></div>
+                        <hr class="border-gray-700">
+                        <p class="text-[10px] leading-relaxed">ヒント: <span class="text-green-400">レギンス</span>や<span class="text-green-400">ブーツ</span>の「layer_1, 2」は防具の装着モデル用のテクスチャです。</p>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="importModal" class="fixed inset-0 bg-black/80 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold mb-4">インポート元を選択</h3>
+            <p class="text-xs text-gray-400 mb-4">編集済みのテクスチャを上書きコピーします。</p>
+            <div id="importList" class="max-h-60 overflow-y-auto space-y-2 custom-scroll mb-6"></div>
+            <div class="flex justify-end gap-3">
+                <button id="closeImport" class="text-sm text-gray-400 px-4 py-2">キャンセル</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 bg-blue-600 text-white px-6 py-3 rounded-xl shadow-2xl opacity-0 transition-all transform translate-y-4 pointer-events-none z-[200]"></div>
+
+    <script>
+        // --- Database & Constants ---
+        const WOOL_COLORS = ['white', 'orange', 'magenta', 'light_blue', 'yellow', 'lime', 'pink', 'gray', 'silver', 'cyan', 'purple', 'blue', 'brown', 'green', 'red', 'black'];
+        const MATERIALS = ['leather', 'chainmail', 'iron', 'gold', 'diamond'];
+        
+        const DEFAULT_ITEMS = [
+            // Weapons
+            { id: 'diamond_sword', path: 'items/diamond_sword', label: 'ダイヤの剣', cat: 'sword' },
+            { id: 'iron_sword', path: 'items/iron_sword', label: '鉄の剣', cat: 'sword' },
+            { id: 'gold_sword', path: 'items/gold_sword', label: '金の剣', cat: 'sword' },
+            { id: 'stone_sword', path: 'items/stone_sword', label: '石の剣', cat: 'sword' },
+            { id: 'wood_sword', path: 'items/wood_sword', label: '木の剣', cat: 'sword' },
+            // Tools
+            { id: 'diamond_pickaxe', path: 'items/diamond_pickaxe', label: 'ダイヤツルハシ', cat: 'tool' },
+            { id: 'iron_pickaxe', path: 'items/iron_pickaxe', label: '鉄ツルハシ', cat: 'tool' },
+            { id: 'bow_standby', path: 'items/bow_standby', label: '弓', cat: 'tool' },
+            { id: 'fishing_rod_uncast', path: 'items/fishing_rod_uncast', label: '釣竿', cat: 'tool' },
+            // Materials (Added New)
+            { id: 'iron_ingot', path: 'items/iron_ingot', label: '鉄インゴット', cat: 'material' },
+            { id: 'gold_ingot', path: 'items/gold_ingot', label: '金インゴット', cat: 'material' },
+            { id: 'diamond', path: 'items/diamond', label: 'ダイヤモンド', cat: 'material' },
+            { id: 'emerald', path: 'items/emerald', label: 'エメラルド', cat: 'material' },
+            // Armor (Added Leggings/Boots)
+            ...MATERIALS.flatMap(t => [
+                { id: `${t}_helmet`, path: `items/${t}_helmet`, label: `${t}メット`, cat: 'armor' },
+                { id: `${t}_chestplate`, path: `items/${t}_chestplate`, label: `${t}チェスト`, cat: 'armor' },
+                { id: `${t}_leggings`, path: `items/${t}_leggings`, label: `${t}レギンス`, cat: 'armor' },
+                { id: `${t}_boots`, path: `items/${t}_boots`, label: `${t}ブーツ`, cat: 'armor' },
+                { id: `${t}_layer_1`, path: `models/armor/${t}_layer_1`, label: `${t}防具1(上)`, cat: 'armor' },
+                { id: `${t}_layer_2`, path: `models/armor/${t}_layer_2`, label: `${t}防具2(下)`, cat: 'armor' }
+            ]),
+            // Blocks (Added New)
+            { id: 'stone', path: 'blocks/stone', label: '石', cat: 'block' },
+            { id: 'cobblestone', path: 'blocks/cobblestone', label: '丸石', cat: 'block' },
+            { id: 'diamond_block', path: 'blocks/diamond_block', label: 'ダイヤブロック', cat: 'block' },
+            { id: 'emerald_block', path: 'blocks/emerald_block', label: 'エメラルドブロック', cat: 'block' },
+            { id: 'gold_block', path: 'blocks/gold_block', label: '金ブロック', cat: 'block' },
+            { id: 'iron_block', path: 'blocks/iron_block', label: '鉄ブロック', cat: 'block' },
+            { id: 'obsidian', path: 'blocks/obsidian', label: '黒曜石', cat: 'block' },
+            ...WOOL_COLORS.map(c => ({ id: `wool_${c}`, path: `blocks/wool_colored_${c}`, label: `${c}羊毛`, cat: 'wool' }))
+        ];
+
+        // --- App State ---
+        let items = [...DEFAULT_ITEMS];
+        let currentItem = items[0];
+        let textures = {}; 
+        let isDrawing = false;
+        let currentTool = 'pen';
+        const GRID_SIZE = 16;
+        
+        let dynamicPalette = [
+            '#ff0000', '#ff5555', '#ff8800', '#ffaa00', '#ffff00', '#ffff55',
+            '#00ff00', '#55ff55', '#00aa00', '#00ffff', '#55ffff', '#00aaaa',
+            '#0000ff', '#5555ff', '#0000aa', '#ff00ff', '#ff55ff', '#aa00aa',
+            '#ffffff', '#bbbbbb', '#888888', '#444444', '#222222', '#000000',
+            '#8b4513', '#a0522d', '#d2691e', '#f4a460', '#ffd700', 'transparent'
+        ];
+
+        // --- DOM Cache ---
+        const grid = document.getElementById('pixelGrid');
+        const itemListEl = document.getElementById('itemList');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const colorPicker = document.getElementById('colorPicker');
+        const currentItemDisplay = document.getElementById('currentItemDisplay');
+        const currentPathDisplay = document.getElementById('currentPathDisplay');
+        const miniPreview = document.getElementById('miniPreview');
+        const toast = document.getElementById('toast');
+        const paletteEl = document.getElementById('colorPalette');
+
+        // --- Color Utils ---
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
+
+        function adjustBrightness(hex, percent) {
+            const rgb = hexToRgb(hex);
+            if (!rgb) return hex;
+            const r = Math.min(255, Math.max(0, Math.round(rgb.r + (255 * percent))));
+            const g = Math.min(255, Math.max(0, Math.round(rgb.g + (255 * percent))));
+            const b = Math.min(255, Math.max(0, Math.round(rgb.b + (255 * percent))));
+            return rgbToHex(r, g, b);
+        }
+
+        // --- Logic ---
+        function init() {
+            // Build Grid
+            for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+                const pixel = document.createElement('div');
+                pixel.classList.add('pixel');
+                pixel.addEventListener('mousedown', (e) => {
+                    if (currentTool === 'picker') eyeDropper(e.target);
+                    else { isDrawing = true; applyTool(e.target); }
+                });
+                pixel.addEventListener('mouseover', (e) => { if (isDrawing && currentTool !== 'picker') applyTool(e.target); });
+                grid.appendChild(pixel);
+            }
+            window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing = false; saveCurrentTexture(); updatePreview(); } });
+
+            // Tone Controls
+            document.getElementById('brightenBtn').onclick = () => { colorPicker.value = adjustBrightness(colorPicker.value, 0.08); };
+            document.getElementById('darkenBtn').onclick = () => { colorPicker.value = adjustBrightness(colorPicker.value, -0.08); };
+            document.getElementById('addColorBtn').onclick = () => {
+                const newColor = colorPicker.value;
+                if (!dynamicPalette.includes(newColor)) { dynamicPalette.push(newColor); renderPalette(); showToast("パレットに追加"); }
+            };
+
+            // Init Texture Map
+            items.forEach(item => textures[item.id] = new Array(GRID_SIZE * GRID_SIZE).fill('transparent'));
+            
+            updateStats();
+            renderItemList();
+            renderPalette();
+            switchItem(items[0]);
+            updateToolUI();
+
+            categoryFilter.onchange = renderItemList;
+        }
+
+        function renderPalette() {
+            paletteEl.innerHTML = '';
+            dynamicPalette.forEach(c => {
+                const pBtn = document.createElement('button');
+                pBtn.className = "w-full aspect-square rounded border border-gray-700 transition hover:scale-110";
+                if (c === 'transparent') {
+                    pBtn.style.background = "linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%), linear-gradient(45deg, #333 25%, #666 25%, #666 75%, #333 75%)";
+                    pBtn.style.backgroundSize = "6px 6px";
+                    pBtn.onclick = () => { currentTool = 'eraser'; updateToolUI(); };
+                } else {
+                    pBtn.style.backgroundColor = c;
+                    pBtn.onclick = () => { colorPicker.value = c; currentTool = 'pen'; updateToolUI(); };
+                }
+                paletteEl.appendChild(pBtn);
+            });
+        }
+
+        function renderItemList() {
+            const filter = categoryFilter.value;
+            itemListEl.innerHTML = '';
+            items.forEach(item => {
+                if (filter !== 'all' && item.cat !== filter) return;
+                const isEdited = textures[item.id].some(c => c !== 'transparent');
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-3 py-2 rounded-lg text-xs transition mb-1 flex justify-between items-center ${
+                    currentItem.id === item.id ? 'bg-blue-600 font-bold shadow-lg' : 'bg-gray-700/50 hover:bg-gray-700'
+                }`;
+                btn.innerHTML = `<span>${item.label}</span> ${isEdited ? '<span class="w-2 h-2 bg-green-400 rounded-full"></span>' : ''}`;
+                btn.onclick = () => switchItem(item);
+                itemListEl.appendChild(btn);
+            });
+        }
+
+        function switchItem(item) {
+            saveCurrentTexture();
+            currentItem = item;
+            currentItemDisplay.innerText = item.label;
+            currentPathDisplay.innerText = `assets/minecraft/textures/${item.path}.png`;
+            const data = textures[item.id];
+            const pixels = document.querySelectorAll('.pixel');
+            pixels.forEach((px, i) => px.style.backgroundColor = data[i]);
+            updatePreview();
+            renderItemList();
+        }
+
+        function saveCurrentTexture() {
+            const pixels = document.querySelectorAll('.pixel');
+            textures[currentItem.id] = Array.from(pixels).map(p => p.style.backgroundColor || 'transparent');
+            updateStats();
+        }
+
+        function updatePreview() {
+            const data = textures[currentItem.id];
+            const canvas = document.createElement('canvas');
+            canvas.width = 16; canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            data.forEach((c, i) => { if(c !== 'transparent') { ctx.fillStyle = c; ctx.fillRect(i % 16, Math.floor(i / 16), 1, 1); } });
+            miniPreview.style.backgroundImage = `url(${canvas.toDataURL()})`;
+        }
+
+        function updateStats() {
+            const editedCount = Object.values(textures).filter(t => t.some(c => c !== 'transparent')).length;
+            document.getElementById('statEdited').innerText = editedCount;
+            document.getElementById('statTotal').innerText = items.length;
+        }
+
+        function applyTool(pixelEl) {
+            if (currentTool === 'pen') pixelEl.style.backgroundColor = colorPicker.value;
+            else if (currentTool === 'eraser') pixelEl.style.backgroundColor = 'transparent';
+        }
+
+        function eyeDropper(pixelEl) {
+            const color = pixelEl.style.backgroundColor;
+            if (color && color !== 'transparent') {
+                const rgb = color.match(/\d+/g);
+                if (rgb) { colorPicker.value = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2])); showToast(`スポイト完了`); }
+            }
+            currentTool = 'pen';
+            updateToolUI();
+        }
+
+        document.getElementById('penTool').onclick = () => { currentTool = 'pen'; updateToolUI(); };
+        document.getElementById('eraserTool').onclick = () => { currentTool = 'eraser'; updateToolUI(); };
+        document.getElementById('pickerTool').onclick = () => { currentTool = 'picker'; updateToolUI(); };
+
+        function updateToolUI() {
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('tool-active'));
+            if (currentTool === 'pen') document.getElementById('penTool').classList.add('tool-active');
+            else if (currentTool === 'eraser') document.getElementById('eraserTool').classList.add('tool-active');
+            else if (currentTool === 'picker') document.getElementById('pickerTool').classList.add('tool-active');
+        }
+
+        // --- Custom Features ---
+        document.getElementById('addCustomBtn').onclick = () => {
+            const label = document.getElementById('customLabel').value.trim();
+            const path = document.getElementById('customPath').value.trim().replace(/^\/+/, '');
+            if (!label || !path) return showToast("入力が不足しています");
+            const newId = 'custom_' + Date.now();
+            items.push({ id: newId, path: path, label: label, cat: 'custom' });
+            textures[newId] = new Array(GRID_SIZE * GRID_SIZE).fill('transparent');
+            categoryFilter.value = 'custom';
+            renderItemList();
+            switchItem(items[items.length - 1]);
+            document.getElementById('customLabel').value = '';
+            document.getElementById('customPath').value = '';
+            showToast("カスタムID追加成功");
+        };
+
+        document.getElementById('importBtn').onclick = () => {
+            const list = document.getElementById('importList');
+            list.innerHTML = '';
+            const edited = items.filter(i => i.id !== currentItem.id && textures[i.id].some(c => c !== 'transparent'));
+            if (edited.length === 0) list.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">コピー可能なアイテムがありません</p>';
+            else {
+                edited.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left p-3 bg-gray-700/50 hover:bg-blue-600 rounded-lg transition text-xs mb-1";
+                    btn.innerText = item.label;
+                    btn.onclick = () => {
+                        textures[currentItem.id] = [...textures[item.id]];
+                        const pixels = document.querySelectorAll('.pixel');
+                        pixels.forEach((px, i) => px.style.backgroundColor = textures[currentItem.id][i]);
+                        updatePreview();
+                        document.getElementById('importModal').classList.add('hidden');
+                        showToast("テクスチャをコピーしました");
+                    };
+                    list.appendChild(btn);
+                });
+            }
+            document.getElementById('importModal').classList.remove('hidden');
+        };
+
+        document.getElementById('closeImport').onclick = () => document.getElementById('importModal').classList.add('hidden');
+
+        document.getElementById('clearCanvas').onclick = () => {
+            if (confirm('キャンバスをリセットしますか？')) {
+                document.querySelectorAll('.pixel').forEach(p => p.style.backgroundColor = 'transparent');
+                saveCurrentTexture();
+                updatePreview();
+            }
+        };
+
+        document.getElementById('exportBtn').onclick = async () => {
+            saveCurrentTexture();
+            const zip = new JSZip();
+            const packName = document.getElementById('packName').value || 'MyPack';
+            zip.file("pack.mcmeta", JSON.stringify({ pack: { pack_format: 1, description: document.getElementById('packDescription').value } }, null, 4));
+            for (const item of items) {
+                const data = textures[item.id];
+                if (!data.some(c => c !== 'transparent')) continue;
+                const canvas = document.createElement('canvas');
+                canvas.width = 16; canvas.height = 16;
+                const ctx = canvas.getContext('2d');
+                data.forEach((c, i) => { if(c !== 'transparent') { ctx.fillStyle = c; ctx.fillRect(i % 16, Math.floor(i / 16), 1, 1); } });
+                const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+                zip.file(`assets/minecraft/textures/${item.path}.png`, blob);
+            }
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(content);
+            link.download = `${packName}.zip`;
+            link.click();
+            showToast("パックを保存しました！");
+        };
+
+        function showToast(msg) {
+            toast.innerText = msg;
+            toast.classList.replace('opacity-0', 'opacity-100');
+            toast.classList.replace('translate-y-4', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.replace('opacity-100', 'opacity-0');
+                toast.classList.replace('translate-y-0', 'translate-y-4');
+            }, 2000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
